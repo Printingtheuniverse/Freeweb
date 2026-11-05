@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>FreeWeb: make a website free</title>
+<style>
+:root{--bg:#f1f0ec;--surface:#fff;--text:#1d1d1b;--muted:#6f6e68;--line:#e2e0d8;--accent:#3b5bdb;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#151517;--surface:#1f1f23;--text:#ececea;--muted:#9a9a95;--line:#2f2f35;--accent:#7c93ff}}
+:root[data-theme="dark"]{--bg:#151517;--surface:#1f1f23;--text:#ececea;--muted:#9a9a95;--line:#2f2f35;--accent:#7c93ff}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}
+.app{display:grid;grid-template-columns:240px 1fr;min-height:100vh}
+aside{background:var(--surface);border-right:1px solid var(--line);padding:16px;display:flex;flex-direction:column;gap:10px}
+aside h1{font-size:18px;margin:0}aside h2{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:10px 0 0}
+button{font:inherit;color:var(--text);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:9px 12px;cursor:pointer;text-align:left}
+button:hover{border-color:var(--accent)}button.p{background:var(--accent);color:#fff;border:0;text-align:center}
+input,select,textarea{font:inherit;color:var(--text);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px;width:100%}
+input[type=color]{padding:2px;height:36px}
+.hint{font-size:12px;color:var(--muted)}.ok{color:#2b8a3e}.err{color:#d6336c}
+.stage{padding:20px;overflow:auto}
+.frame{max-width:960px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 20px rgba(0,0,0,.12)}
+.blk{position:relative}.blk:hover{outline:2px dashed var(--accent);outline-offset:-2px}
+.tb{position:absolute;top:8px;right:8px;display:none;gap:4px;z-index:5}
+.blk:hover .tb{display:flex}
+.tb button{padding:3px 9px;background:#fff;color:#222;border:1px solid #ccc;font-size:13px}
+[contenteditable]:focus{outline:2px solid var(--accent);outline-offset:2px}
+dialog{border:1px solid var(--line);border-radius:14px;background:var(--surface);color:var(--text);width:min(560px,92vw)}
+dialog::backdrop{background:rgba(0,0,0,.4)}
+@media(max-width:720px){.app{grid-template-columns:1fr}aside{border-right:0;border-bottom:1px solid var(--line)}}
+</style>
+</head>
+<body>
+<div class="app">
+<aside>
+  <h1>FreeWeb</h1>
+  <div class="hint">Click any text on the page to edit it.</div>
+  <h2>Add a section</h2>
+  <button data-add="hero">+ Hero banner</button>
+  <button data-add="about">+ About / text</button>
+  <button data-add="features">+ Three features</button>
+  <button data-add="cta">+ Call to action</button>
+  <button data-add="contact">+ Contact</button>
+  <button data-add="footer">+ Footer</button>
+  <h2>Style</h2>
+  <label class="hint">Site title</label><input id="ttl" value="My Website">
+  <label class="hint">Main color</label><input id="col" type="color" value="#3b5bdb">
+  <label class="hint">Font</label>
+  <select id="fnt"><option value="system-ui,sans-serif">Modern</option><option value="Georgia,serif">Classic</option><option value="'Trebuchet MS',sans-serif">Friendly</option><option value="ui-monospace,Menlo,monospace">Techy</option></select>
+  <h2>Finish</h2>
+  <button class="p" id="dl">Download my site</button>
+  <button id="code">View HTML code</button>
+  <h2>Publish free</h2>
+  <label class="hint">Site name</label><input id="sn" maxlength="30" placeholder="my-cool-site" autocomplete="off">
+  <div class="hint" id="av"></div>
+  <button class="p" id="go">Publish my site</button>
+  <div class="hint" id="res"></div>
+  <h2>Get your own .com</h2>
+  <input id="dn" placeholder="whatever" maxlength="40" autocomplete="off">
+  <div class="hint" id="dv"></div>
+  <input id="pc" placeholder="Promo code (optional)" autocomplete="off">
+  <button class="p" id="dc">Get my .com</button>
+  <div class="hint" id="dm">Have a promo code? It’s free and needs no card. No code? It’s $4 a month. Publish your site first.</div>
+</aside>
+<div class="stage"><div class="frame site" id="site"></div></div>
+</div>
+<dialog id="dlg"><textarea id="ta" rows="14" readonly style="font-family:ui-monospace,monospace;font-size:12px"></textarea><div style="display:flex;gap:8px;margin-top:10px;justify-content:flex-end"><button id="cp">Copy</button><button id="cl">Close</button></div></dialog>
+<script>
+const $=id=>document.getElementById(id);
+const CSS=`.site{--c:#3b5bdb;color:#1d1d1b;line-height:1.5}.site *{box-sizing:border-box}
+.site section{padding:64px 28px;text-align:center}.site h1{font-size:clamp(30px,6vw,52px);margin:0 0 12px;line-height:1.1}.site h2{font-size:28px;margin:0 0 12px}
+.site p{max-width:620px;margin:0 auto 16px;font-size:18px;color:#444}
+.site .hero{background:var(--c);color:#fff}.site .hero p{color:#ffffffdd}
+.site .btn{display:inline-block;background:#fff;color:var(--c);padding:12px 26px;border-radius:99px;font-weight:600;text-decoration:none}
+.site .cta{background:#f3f4f8}.site .cta .btn{background:var(--c);color:#fff}
+.site .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:24px;max-width:860px;margin:24px auto 0}
+.site .grid div{background:#f3f4f8;border-radius:14px;padding:22px}.site .grid h3{margin:0 0 8px;color:var(--c)}.site .grid p{font-size:15px;margin:0}
+.site footer{padding:28px;text-align:center;background:#1d1d1b;color:#bbb;font-size:14px}`;
+const T={
+hero:()=>`<section class="hero"><h1>Welcome to my website</h1><p>A short line about what you do and why it matters.</p><a class="btn" href="#">Get started</a></section>`,
+about:()=>`<section><h2>About me</h2><p>Tell your story here. Click this text to change it, and write whatever you like.</p></section>`,
+features:()=>`<section><h2>What I offer</h2><div class="grid"><div><h3>Feature one</h3><p>Describe it in a sentence.</p></div><div><h3>Feature two</h3><p>Describe it in a sentence.</p></div><div><h3>Feature three</h3><p>Describe it in a sentence.</p></div></div></section>`,
+cta:()=>`<section class="cta"><h2>Ready to talk?</h2><p>Invite visitors to take the next step.</p><a class="btn" href="#">Contact me</a></section>`,
+contact:()=>`<section><h2>Contact</h2><p>hello@example.com</p><p>Your city, Your country</p></section>`,
+footer:()=>`<footer>&copy; 2026 My Website. All rights reserved.</footer>`
+};
+const site=$("site");
+function add(t){
+  const d=document.createElement("div");d.className="blk";d.innerHTML=T[t]();
+  d.querySelectorAll("h1,h2,h3,p,footer,.btn").forEach(e=>e.setAttribute("contenteditable","true"));
+  d.querySelectorAll("a").forEach(a=>a.addEventListener("click",e=>e.preventDefault()));
+  const tb=document.createElement("div");tb.className="tb";tb.contentEditable="false";
+  [["↑",()=>{if(d.previousElementSibling)site.insertBefore(d,d.previousElementSibling)}],["↓",()=>{if(d.nextElementSibling)site.insertBefore(d.nextElementSibling,d)}],["✕",()=>d.remove()]].forEach(([l,f])=>{const b=document.createElement("button");b.textContent=l;b.onclick=f;tb.append(b)});
+  d.prepend(tb);site.append(d);return d;
+}
+document.querySelectorAll("[data-add]").forEach(b=>b.onclick=()=>add(b.dataset.add));
+["hero","about","features","cta","footer"].forEach(add);
+function style(){site.style.setProperty("--c",$("col").value);site.style.fontFamily=$("fnt").value}
+$("col").oninput=style;$("fnt").onchange=style;style();
+function build(){
+  const c=site.cloneNode(true);
+  c.querySelectorAll(".tb").forEach(e=>e.remove());
+  c.querySelectorAll("[contenteditable]").forEach(e=>e.removeAttribute("contenteditable"));
+  c.querySelectorAll(".blk").forEach(b=>b.replaceWith(...b.childNodes));
+  const t=$("ttl").value.replace(/[<>&]/g,"");
+  return `<!DOCTYPE html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,initial-scale=1">\n<title>${t}</title>\n<style>body{margin:0}${CSS}</style>\n</head>\n<body>\n<div class="site" style="--c:${$("col").value};font-family:${$("fnt").value.replace(/"/g,"'")}">\n${c.innerHTML}\n</div>\n</body>\n</html>`;
+}
+$("code").onclick=()=>{$("ta").value=build();$("dlg").showModal()};
+$("cl").onclick=()=>$("dlg").close();
+$("cp").onclick=async()=>{try{await navigator.clipboard.writeText($("ta").value)}catch(e){$("ta").select();document.execCommand("copy")}};
+$("dl").onclick=()=>{
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(new Blob([build()],{type:"text/html"}));
+  a.download="index.html";document.body.append(a);a.click();a.remove();
+};
+const slug=v=>v.toLowerCase().replace(/[^a-z0-9-]+/g,"-").replace(/^-+|-+$/g,"").slice(0,30);
+const tok=n=>{try{return localStorage.getItem("fw-token:"+n)||""}catch(e){return ""}};
+function say(id,t,c){const e=$(id);e.textContent=t;e.className="hint"+(c?" "+c:"")}
+let tm;
+async function check(){
+  const n=slug($("sn").value);
+  if(!n){say("av","");return}
+  if(n.length<3){say("av","Use at least 3 characters","err");return}
+  try{
+    const r=await(await fetch("/api/check?name="+encodeURIComponent(n)+"&token="+encodeURIComponent(tok(n)))).json();
+    if(r.available)say("av","\u2713 "+n+" is available","ok");
+    else if(r.mine)say("av","\u2713 "+n+" is yours. Publishing will update it.","ok");
+    else say("av",r.reason==="invalid"?"That name isn\u2019t allowed":n+" is taken","err");
+  }catch(e){say("av","Couldn\u2019t check right now","err")}
+}
+$("sn").addEventListener("input",()=>{clearTimeout(tm);tm=setTimeout(check,350)});
+$("go").onclick=async()=>{
+  const n=slug($("sn").value);
+  if(n.length<3){say("res","Pick a site name first.","err");return}
+  say("res","Publishing\u2026");
+  try{
+    const r=await fetch("/api/publish",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({name:n,html:build(),token:tok(n)})});
+    const d=await r.json();
+    if(!r.ok){say("res",d.error||"Couldn\u2019t publish","err");return}
+    try{localStorage.setItem("fw-token:"+n,d.token)}catch(e){}
+    const e=$("res");e.className="hint ok";e.textContent="Live! ";
+    const a=document.createElement("a");a.href=d.url;a.target="_blank";a.rel="noopener";a.textContent=d.url;e.append(a);
+    check();
+  }catch(e){say("res","Couldn\u2019t publish","err")}
+};
+let dtm,domOn=false;
+fetch("/api/domain/status").then(r=>r.json()).then(x=>{domOn=!!x.enabled;if(!domOn)say("dm","Free .com names aren\u2019t switched on yet.")}).catch(()=>{});
+async function dcheck(){
+  const n=slug($("dn").value);
+  if(!n||!domOn){say("dv","");return}
+  try{
+    const r=await(await fetch("/api/domain/check?name="+encodeURIComponent(n))).json();
+    if(r.error)say("dv",r.error,"err");
+    else if(r.available)say("dv","\u2713 "+r.domain+" is available","ok");
+    else say("dv",r.reason==="premium"?(r.domain||n+".com")+" is a premium name. Try another.":(r.domain||n+".com")+" isn\u2019t available","err");
+  }catch(e){say("dv","Couldn\u2019t check right now","err")}
+}
+$("dn").addEventListener("input",()=>{clearTimeout(dtm);dtm=setTimeout(dcheck,400)});
+$("dc").onclick=async()=>{
+  const n=slug($("dn").value),site=slug($("sn").value);
+  if(!n){say("dm","Type the .com name you want.","err");return}
+  if(!site||!tok(site)){say("dm","Publish your site first, then get a .com for it.","err");return}
+  say("dm","Working\u2026");
+  try{
+    const r=await fetch("/api/domain/claim",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({name:n,site,token:tok(site),promo:$("pc").value})});
+    const d=await r.json();
+    if(!r.ok){say("dm",d.error||"Couldn\u2019t get that domain","err");return}
+    if(d.checkoutUrl){location.href=d.checkoutUrl;return}
+    say("dm","\u2713 "+d.domain+" is yours! It can take up to a day to start working.","ok");
+  }catch(e){say("dm","Couldn\u2019t get that domain","err")}
+};
+</script>
+</body>
+</html>
